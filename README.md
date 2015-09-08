@@ -21,8 +21,13 @@ Of course, "stack" can be many things: number of unread emails, number of to-do 
 
 ###This repository
 The purpose of this repo is to make my work shareable - I had a fair amount of trouble trying to go from the research paper to a safe, working circuit, and I'm hoping to save others some work.
+
 The circuitboard isn't what I would put onto a phone - it is instead a platform for trying out different waveforms, intensities, and so on.
-The intent is that you will use hte board to figure out the correct implementation details and then generate your own board with a more appropriate layout.
+
+The intent is that you will use the board to figure out the correct implementation details and then generate your own board with a more appropriate layout.
+
+###Requirements
+You should follow the BOM pretty precisely unless you know what you are doing. The circuit is designed to work with a 9v battery and I will be trying to allow smaller/more power supplies to work with it. The microcontroller is a Teensy 3.1
 
 ###Thanks
 I'm so grateful to Disney Research, Ivan Poupyrev, Olivier Bau, and others who worked on the papers for making their work available - I never would have known aobut this cool phoneomenon without their shared work! Thanks as well to nytlabs for supporting my explorations and letting me share in kind.
