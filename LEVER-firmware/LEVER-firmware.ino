@@ -35,6 +35,8 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define pwmOut 4
 float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
 float maxFreq = 0.4 * 1000.0;
+float minDuty = 0.3;
+float maxDuty = 0.98;
 
 #define LOGO16_GLCD_HEIGHT 16
 #define LOGO16_GLCD_WIDTH  16
@@ -65,6 +67,7 @@ float phase = 0.0;
 float twopi = 3.14159 * 2;
 float phaseOffset = 0.05;
 float dutyCycle = 0.75;
+
 int count = 0;
 int newFreqPot = 0;
 int lastFreqPot = 0; // remember last loop's reading, only update screen if pot is moved
@@ -77,20 +80,24 @@ void setup() {
   pinMode(pwmOut, OUTPUT);
   pinMode(pot, INPUT); // frequency adjust pot
   pinMode(dutyPot, INPUT); // eventually this will be replaced by calculateFeedback()
-  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
+//  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
   // Show image buffer on the display hardware.
   // Since the buffer is intialized with an Adafruit splashscreen
   // internally, this will display the splashscreen.
   display.setTextSize(1);
   display.setTextColor(WHITE);
-  display.setCursor(0, 0);
+//  display.setCursor(0, 0);
   display.display();
 
 }
 
 void loop() {
-  display.clearDisplay();
+//  display.clearDisplay();
+
+  // this line fails to yield anything but 0.30
+  dutyCycle = constrain(map(analogRead(dutyPot), 0, 1023, minDuty, maxDuty), minDuty, maxDuty);
+
   newFreqPot = analogRead(pot);
   if ( abs(newFreqPot - lastFreqPot) > freqPotDeltaThreshold) {
     lastFreqPot = newFreqPot;
@@ -114,15 +121,5 @@ void loop() {
   //  phase = phase + 0.2; // about 600Hz
   //  phase = phase + 0.05; // about 150Hz
   //  phase = phase + 0.025; // about 75Hz
-
-
-
-  //  count++;
-  //  if(count%3000==0){
-  //    updateDisplay();
-  //  }
-  //  if(count>100000){
-  //    count = 0;
-  //  }
 
 }
