@@ -1,4 +1,4 @@
-#include <Adafruit_MCP4725.h>
+
 
 // LEVER driver for implementation of REVEL and TeslaTouch papers by Disney Research
 // for teensy 3.1
@@ -20,6 +20,7 @@
 // TODO: figure out where in teh circuit the current-sensing occurs (pretty sure we're measuring voltage drop across precision resistor?)
 // TODO: figure out how an RF interface might be used, maybe RFduino serial link or BlueSmiRF?
 
+// #include <Adafruit_MCP4725.h> // not yet used, for external DAC if necessary
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -28,10 +29,12 @@
 #define OLED_RESET 5
 Adafruit_SSD1306 display(OLED_RESET);
 
+#define dutyPot 22
+#define wavePot 23
 #define pot 21
 #define pwmOut 4
-float minFreq = 0.0125*1000.0;
-float maxFreq = 0.4*1000.0;
+float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
+float maxFreq = 0.4 * 1000.0;
 
 #define LOGO16_GLCD_HEIGHT 16
 #define LOGO16_GLCD_WIDTH  16
@@ -61,15 +64,20 @@ static const unsigned char PROGMEM logo16_glcd_bmp[] =
 float phase = 0.0;
 float twopi = 3.14159 * 2;
 float phaseOffset = 0.05;
-int tempread = 0;
+float dutyCycle = 0.75;
 int count = 0;
+int newFreqPot = 0;
+int lastFreqPot = 0; // remember last loop's reading, only update screen if pot is moved
+int freqPotDeltaThreshold = 50; // read resolution is 10-bit (0-1023) so this is about 5%
 
 void setup() {
   // 0 - 4095 pwm values if res set to 12-bit
   analogWriteResolution(12);
   analogWriteFrequency(pwmOut, 375000);
   pinMode(pwmOut, OUTPUT);
-  pinMode(pot, INPUT);
+  pinMode(pot, INPUT); // frequency adjust pot
+  pinMode(dutyPot, INPUT); // eventually this will be replaced by calculateFeedback()
+  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
   // Show image buffer on the display hardware.
   // Since the buffer is intialized with an Adafruit splashscreen
@@ -83,24 +91,38 @@ void setup() {
 
 void loop() {
   display.clearDisplay();
-  tempread = analogRead(pot);
-  phaseOffset = (4*phaseOffset + constrain(map(analogRead(pot), 0, 1023, minFreq, maxFreq), minFreq, maxFreq))/5;
-  // duty cycle 75%
-  analogWrite(pwmOut, int(4096 * 0.75));
+  newFreqPot = analogRead(pot);
+  if ( abs(newFreqPot - lastFreqPot) > freqPotDeltaThreshold) {
+    lastFreqPot = newFreqPot;
+    updateDisplay();
+  }
+  phaseOffset = (4 * phaseOffset + constrain(map(newFreqPot, 0, 1023, minFreq, maxFreq), minFreq, maxFreq)) / 5;
+
+  //calculateFeedback(); // this doesn't exist yet
+  /* I think: we measure the current going across a precision resistor (at high voltage, so: how?! isolation amp?)
+   * Then we see how far under/over target we are, and proportionally adjust duty cycle
+   * (higher duty cycle, i think, means higher voltage but make sure it's not going into saturation)
+   *
+   */
+
+  analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
   float sineVal = sin(phase) * 2000.0 + 2050.0;
   analogWrite(A14, (int)sineVal);
   //  phase = phase + 0.025;
-  phase = phase + (phaseOffset/1000.0);
+  phase = phase + (phaseOffset / 1000.0);
+  if (phase >= twopi) phase = 0;
   //  phase = phase + 0.2; // about 600Hz
   //  phase = phase + 0.05; // about 150Hz
   //  phase = phase + 0.025; // about 75Hz
-  if (phase >= twopi) phase = 0;
-  count++;
-  if(count%3000==0){
-    updateDisplay();
-  }
-  if(count>100000){
-    count = 0;
-  }
+
+
+
+  //  count++;
+  //  if(count%3000==0){
+  //    updateDisplay();
+  //  }
+  //  if(count>100000){
+  //    count = 0;
+  //  }
 
 }
