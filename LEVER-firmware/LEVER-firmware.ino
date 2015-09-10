@@ -80,23 +80,23 @@ void setup() {
   pinMode(pwmOut, OUTPUT);
   pinMode(pot, INPUT); // frequency adjust pot
   pinMode(dutyPot, INPUT); // eventually this will be replaced by calculateFeedback()
-//  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
+  //  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
   // Show image buffer on the display hardware.
   // Since the buffer is intialized with an Adafruit splashscreen
   // internally, this will display the splashscreen.
   display.setTextSize(1);
   display.setTextColor(WHITE);
-//  display.setCursor(0, 0);
+  //  display.setCursor(0, 0);
   display.display();
 
 }
 
 void loop() {
-//  display.clearDisplay();
+  //  display.clearDisplay();
 
   // this line fails to yield anything but 0.30
-  dutyCycle = constrain(map(analogRead(dutyPot), 0, 1023, minDuty, maxDuty), minDuty, maxDuty);
+  dutyCycle = constrain(floatmap(analogRead(dutyPot), 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
 
   newFreqPot = analogRead(pot);
   if ( abs(newFreqPot - lastFreqPot) > freqPotDeltaThreshold) {
@@ -105,7 +105,7 @@ void loop() {
   }
   phaseOffset = (4 * phaseOffset + constrain(map(newFreqPot, 0, 1023, minFreq, maxFreq), minFreq, maxFreq)) / 5;
 
-  //calculateFeedback(); // this doesn't exist yet
+  calculateFeedback(); // this doesn't exist yet
   /* I think: we measure the current going across a precision resistor (at high voltage, so: how?! isolation amp?)
    * Then we see how far under/over target we are, and proportionally adjust duty cycle
    * (higher duty cycle, i think, means higher voltage but make sure it's not going into saturation)
