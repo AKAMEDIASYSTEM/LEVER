@@ -5,12 +5,12 @@
 // Digital pin 4 sends hi-freq PWM (altered to send at 375kHz) to a boost converter circuit
 // Analog pin 14 (it's a real DAC on the teensy 3.1) sends variable-freq sine wave to a hi-voltage transistor circuit
 // that modulates the boosted supply voltage
-// Pot on pin A7 sets the signal frequency
+// freqPot on pin A7 sets the signal frequency
 // SDA on pin A4
 // SCL on pin A5
 // OLED_RESET on digital pin 5
 
-// poll pot pin to see what freq should be
+// poll freqPot pin to see what freq should be
 // map 0-1023 analog in to 0.0125 (about 37.5 Hz) to 0.4 (about 1000Hz), add phase
 // update OLED to show approx freq and bars representing texture
 // 1000hz maps to a full bar every other row (ie offset 1)
@@ -29,9 +29,11 @@
 #define OLED_RESET 5
 Adafruit_SSD1306 display(OLED_RESET);
 
-#define dutyPot 22
-#define wavePot 23
-#define pot 21
+#define amplPot 20  //A6
+#define freqPot 21     // A7
+#define dutyPot 22 // A8
+#define wavePot 23 //A9
+
 #define pwmOut 4
 float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
 float maxFreq = 0.4 * 1000.0;
@@ -70,7 +72,7 @@ float dutyCycle = 0.75;
 
 int count = 0;
 int newFreqPot = 0;
-int lastFreqPot = 0; // remember last loop's reading, only update screen if pot is moved
+int lastFreqPot = 0; // remember last loop's reading, only update screen if freqPot is moved
 int freqPotDeltaThreshold = 50; // read resolution is 10-bit (0-1023) so this is about 5%
 
 void setup() {
@@ -78,8 +80,9 @@ void setup() {
   analogWriteResolution(12);
   analogWriteFrequency(pwmOut, 375000);
   pinMode(pwmOut, OUTPUT);
-  pinMode(pot, INPUT); // frequency adjust pot
+  pinMode(freqPot, INPUT); // frequency adjust pot
   pinMode(dutyPot, INPUT); // eventually this will be replaced by calculateFeedback()
+  pinMode(amplPot, INPUT); // manually adjust output DAC amplitude, to see if this should be calculateFeedback() modulated
   //  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
   // Show image buffer on the display hardware.
@@ -98,7 +101,7 @@ void loop() {
   // this line fails to yield anything but 0.30
   dutyCycle = constrain(floatmap(analogRead(dutyPot), 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
 
-  newFreqPot = analogRead(pot);
+  newFreqPot = analogRead(freqPot);
   if ( abs(newFreqPot - lastFreqPot) > freqPotDeltaThreshold) {
     lastFreqPot = newFreqPot;
     updateDisplay();
