@@ -39,6 +39,8 @@ float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, tr
 float maxFreq = 0.4 * 1000.0;
 float minDuty = 0.3;
 float maxDuty = 0.98;
+float minAmpl = 0.5; // not tested
+float maxAmpl = 2.0; // not tested
 
 #define LOGO16_GLCD_HEIGHT 16
 #define LOGO16_GLCD_WIDTH  16
@@ -69,6 +71,7 @@ float phase = 0.0;
 float twopi = 3.14159 * 2;
 float phaseOffset = 0.05;
 float dutyCycle = 0.75;
+float DACamplitude = 1.0;
 
 int count = 0;
 int newFreqPot = 0;
@@ -101,6 +104,9 @@ void loop() {
   // this line fails to yield anything but 0.30
   dutyCycle = constrain(floatmap(analogRead(dutyPot), 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
 
+  // not tested
+  DACamplitude = constrain(floatmap(analogRead(amplPot), 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
+
   newFreqPot = analogRead(freqPot);
   if ( abs(newFreqPot - lastFreqPot) > freqPotDeltaThreshold) {
     lastFreqPot = newFreqPot;
@@ -116,7 +122,7 @@ void loop() {
    */
 
   analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
-  float sineVal = sin(phase) * 2000.0 + 2050.0;
+  float sineVal = sin(phase) * 2000.0 + 2050.0; // amplitude adjustment should occur here
   analogWrite(A14, (int)sineVal);
   //  phase = phase + 0.025;
   phase = phase + (phaseOffset / 1000.0);
