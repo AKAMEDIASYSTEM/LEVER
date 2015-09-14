@@ -12,7 +12,9 @@ void updateDisplay() {
   int freq = int(map(phaseOffset, minFreq, maxFreq, 37.5, 1200));
   display.print(analogRead(dutyPot));
   display.setCursor(42, display.height() - 12);
-  display.println(dutyCycle);
+  display.print(dutyCycle);
+  display.setCursor(72, display.height() - 12);
+  display.print(waveLabels[waveType]);
   display.display();
 
 }

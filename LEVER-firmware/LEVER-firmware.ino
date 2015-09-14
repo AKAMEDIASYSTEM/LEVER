@@ -28,50 +28,41 @@
 
 #define OLED_RESET 5
 Adafruit_SSD1306 display(OLED_RESET);
-
-#define amplPot 20  //A6
-#define freqPot 21     // A7
-#define dutyPot 22 // A8
-#define wavePot 23 //A9
-
-#define pwmOut 4
-float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
-float maxFreq = 0.4 * 1000.0;
-float minDuty = 0.3;
-float maxDuty = 0.98;
-float minAmpl = 0.5; // not tested
-float maxAmpl = 2.0; // not tested
-
-#define LOGO16_GLCD_HEIGHT 16
-#define LOGO16_GLCD_WIDTH  16
-static const unsigned char PROGMEM logo16_glcd_bmp[] =
-{ B00000000, B11000000,
-  B00000001, B11000000,
-  B00000001, B11000000,
-  B00000011, B11100000,
-  B11110011, B11100000,
-  B11111110, B11111000,
-  B01111110, B11111111,
-  B00110011, B10011111,
-  B00011111, B11111100,
-  B00001101, B01110000,
-  B00011011, B10100000,
-  B00111111, B11100000,
-  B00111111, B11110000,
-  B01111100, B11110000,
-  B01110000, B01110000,
-  B00000000, B00110000
-};
-
 #if (SSD1306_LCDHEIGHT != 64)
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
 
+#define amplPot 20 // A6
+#define freqPot 21 // A7
+#define dutyPot 22 // A8
+#define wavePot 23 // A9
+#define pwmOut 4
+#define SINE 0
+#define SQUARE 1
+#define SAW_DESC 2
+#define SAW_ASC 3
+#define TRIANGLE 4
+
+char* waveLabels[] = {"SINE","SQUARE","SAW_DESC","SAW_ASC","TRIANGLE"};
+
+float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
+float maxFreq = 0.4 * 1000.0;
+
+float minDuty = 0.3;
+float maxDuty = 0.98;
+float dutyCycle = 0.75;
+
+float minAmpl = 0.0; // not tested
+float maxAmpl = 2000.0; // not tested
+float DACamplitude = 1000.0;
+
+int waveType = 0; // sine, square, saw descending, saw ascending, triangle
+#define waveMax 4
+#define waveMin 0
+
 float phase = 0.0;
 float twopi = 3.14159 * 2;
 float phaseOffset = 0.05;
-float dutyCycle = 0.75;
-float DACamplitude = 1.0;
 
 int count = 0;
 int newFreqPot = 0;
@@ -88,9 +79,6 @@ void setup() {
   pinMode(amplPot, INPUT); // manually adjust output DAC amplitude, to see if this should be calculateFeedback() modulated
   //  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
-  // Show image buffer on the display hardware.
-  // Since the buffer is intialized with an Adafruit splashscreen
-  // internally, this will display the splashscreen.
   display.setTextSize(1);
   display.setTextColor(WHITE);
   //  display.setCursor(0, 0);
@@ -99,20 +87,28 @@ void setup() {
 }
 
 void loop() {
-  //  display.clearDisplay();
 
-  // this line fails to yield anything but 0.30
   dutyCycle = constrain(floatmap(analogRead(dutyPot), 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
+  analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
 
   // not tested
-  DACamplitude = constrain(floatmap(analogRead(amplPot), 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
+  //  DACamplitude = constrain(floatmap(analogRead(amplPot), 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
+  DACamplitude = 2000.0;
 
   newFreqPot = analogRead(freqPot);
   if ( abs(newFreqPot - lastFreqPot) > freqPotDeltaThreshold) {
     lastFreqPot = newFreqPot;
     updateDisplay();
   }
+  // calculate and update the phase accumulator
   phaseOffset = (4 * phaseOffset + constrain(map(newFreqPot, 0, 1023, minFreq, maxFreq), minFreq, maxFreq)) / 5;
+  phase = phase + (phaseOffset / 1000.0);
+  if (phase >= twopi) {
+    phase = 0;
+  }
+  //  phase = phase + 0.2; // about 600Hz
+  //  phase = phase + 0.05; // about 150Hz
+  //  phase = phase + 0.025; // about 75Hz
 
   calculateFeedback(); // this doesn't exist yet
   /* I think: we measure the current going across a precision resistor (at high voltage, so: how?! isolation amp?)
@@ -121,14 +117,34 @@ void loop() {
    *
    */
 
-  analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
-  float sineVal = sin(phase) * 2000.0 + 2050.0; // amplitude adjustment should occur here
-  analogWrite(A14, (int)sineVal);
-  //  phase = phase + 0.025;
-  phase = phase + (phaseOffset / 1000.0);
-  if (phase >= twopi) phase = 0;
-  //  phase = phase + 0.2; // about 600Hz
-  //  phase = phase + 0.05; // about 150Hz
-  //  phase = phase + 0.025; // about 75Hz
-
+  //  waveType = constrain(map(analogRead(wavePot), 0, 1023, waveMin, waveMax), waveMin, waveMax);
+  waveType = 2;
+  float DACval = 0;
+  switch (waveType) {
+    case SINE:
+      DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
+      //  float sineVal = sin(phase) * 2000.0 + 2050.0; // amplitude adjustment should occur here
+      // 2050.0 is DC offset?
+      // 2000.0 is the amplitude? Test this today 9/14
+      break;
+    case SQUARE:
+      // if phase > pi then 1 else 0
+      (phase > twopi / 2) ? (DACval = DACamplitude + 2050.0) : (DACval = 2050.0);
+      break;
+    case SAW_DESC:
+      // phase itself is linearly ramping
+      DACval = floatmap(phase, 0, twopi, 1.0, 0.0) * DACamplitude + 2050.0;
+      break;
+    case SAW_ASC:
+      // phase itself is linearly ramping
+      DACval = floatmap(phase, 0, twopi, 0.0, 1.0) * DACamplitude + 2050.0;
+      break;
+    case TRIANGLE:
+      DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
+      break;
+    default:
+      DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
+      break;
+  }
+  analogWrite(A14, (int)DACval);
 }
