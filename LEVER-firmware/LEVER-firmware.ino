@@ -43,7 +43,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define SAW_ASC 3
 #define TRIANGLE 4
 
-char* waveLabels[] = {"SINE","SQUARE","SAW_DESC","SAW_ASC","TRIANGLE"};
+char* waveLabels[] = {"SINE", "SQUARE", "SAW_DESC", "SAW_ASC", "TRIANGLE"};
 
 float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
 float maxFreq = 0.4 * 1000.0;
@@ -77,11 +77,10 @@ void setup() {
   pinMode(freqPot, INPUT); // frequency adjust pot
   pinMode(dutyPot, INPUT); // eventually this will be replaced by calculateFeedback()
   pinMode(amplPot, INPUT); // manually adjust output DAC amplitude, to see if this should be calculateFeedback() modulated
-  //  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
+  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
   display.setTextSize(1);
   display.setTextColor(WHITE);
-  //  display.setCursor(0, 0);
   display.display();
 
 }
@@ -92,8 +91,8 @@ void loop() {
   analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
 
   // not tested
-  //  DACamplitude = constrain(floatmap(analogRead(amplPot), 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
-  DACamplitude = 2000.0;
+  DACamplitude = constrain(floatmap(analogRead(amplPot), 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
+  //  DACamplitude = 2000.0;
 
   newFreqPot = analogRead(freqPot);
   if ( abs(newFreqPot - lastFreqPot) > freqPotDeltaThreshold) {
@@ -117,8 +116,8 @@ void loop() {
    *
    */
 
-  //  waveType = constrain(map(analogRead(wavePot), 0, 1023, waveMin, waveMax), waveMin, waveMax);
-  waveType = 2;
+  waveType = constrain(map(analogRead(wavePot), 0, 1023, waveMin, waveMax), waveMin, waveMax);
+//  waveType = 2;
   float DACval = 0;
   switch (waveType) {
     case SINE:
@@ -129,15 +128,15 @@ void loop() {
       break;
     case SQUARE:
       // if phase > pi then 1 else 0
-      (phase > twopi / 2) ? (DACval = DACamplitude + 2050.0) : (DACval = 2050.0);
+      (phase > twopi / 2) ? (DACval = (DACamplitude/maxAmpl)*4095.0) : (DACval = 0.0);
       break;
     case SAW_DESC:
       // phase itself is linearly ramping
-      DACval = floatmap(phase, 0, twopi, 1.0, 0.0) * DACamplitude + 2050.0;
+      DACval = floatmap(phase, 0, twopi, 1.0, 0.0) * (DACamplitude/maxAmpl)*4095.0;
       break;
     case SAW_ASC:
       // phase itself is linearly ramping
-      DACval = floatmap(phase, 0, twopi, 0.0, 1.0) * DACamplitude + 2050.0;
+      DACval = floatmap(phase, 0, twopi, 0.0, 1.0) * (DACamplitude/maxAmpl)*4095.0;
       break;
     case TRIANGLE:
       DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
