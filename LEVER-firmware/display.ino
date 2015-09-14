@@ -10,13 +10,14 @@ void updateDisplay() {
 
   display.setCursor(2, display.height() - 12);
   int freq = int(map(phaseOffset, minFreq, maxFreq, 37.5, 1200));
-  display.print(freq);
-  display.setCursor(42, display.height() - 12);
-  display.print(dutyCycle);
-  display.setCursor(72, display.height() - 12);
   display.print(waveLabels[waveType]);
+  display.setCursor(42, display.height() - 12);
+  display.print(dutyCycle*100);
+  display.print("%");
+  display.setCursor(72, display.height() - 12);
+  display.print(freq);
   display.setCursor(102, display.height() - 12);
-  display.print(DACamplitude);
+  display.print(int(DACamplitude/maxAmpl));
   display.display();
 
 }
