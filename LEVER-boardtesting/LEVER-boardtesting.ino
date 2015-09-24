@@ -43,10 +43,10 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define SAW_ASC 3
 #define NOISE 4
 
-char* waveLabels[] = {"SINE", "SQUARE", "SAW_DESC", "SAW_ASC", "NOISE"};
+char* waveLabels[] = {"SINE", "SQUARE", "SAW_ASC", "SAW_DESC", "NOISE"};
 
-float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
-float maxFreq = 0.4 * 1000.0;
+float minFreq = 0.0125 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
+float maxFreq = 0.2 * 1000.0;
 
 float minDuty = 0.3;
 float maxDuty = 0.98;
@@ -70,26 +70,27 @@ int lastFreqPot = 0; // remember last loop's reading, only update screen if freq
 int freqPotDeltaThreshold = 50; // read resolution is 10-bit (0-1023) so this is about 5%
 
 void setup() {
-  digitalWrite(13,HIGH);
+  digitalWrite(13, HIGH);
   // 0 - 4095 pwm values if res set to 12-bit
   analogWriteResolution(12);
   analogWriteFrequency(pwmOut, 375000);
   pinMode(pwmOut, OUTPUT);
   pinMode(freqPot, INPUT); // frequency adjust pot
-//  pinMode(dutyPot, INPUT); // eventually this will be replaced by calculateFeedback()
-//  pinMode(amplPot, INPUT); // manually adjust output DAC amplitude, to see if this should be calculateFeedback() modulated
-//  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
+  //  pinMode(dutyPot, INPUT); // eventually this will be replaced by calculateFeedback()
+  //  pinMode(amplPot, INPUT); // manually adjust output DAC amplitude, to see if this should be calculateFeedback() modulated
+  //  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.display();
-digitalWrite(13,LOW);
+  digitalWrite(13, LOW);
+  lastFreqPot = analogRead(freqPot);
 }
 
 void loop() {
 
   //  dutyCycle = constrain(floatmap(analogRead(dutyPot), 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
-  dutyCycle = 0.5; // BOARDTESTING: hardcode duty cycle, yields about 180v from boost circuit
+  dutyCycle = 0.6; // BOARDTESTING: hardcode duty cycle, yields about 180v from boost circuit
   analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
 
   //  DACamplitude = constrain(floatmap(analogRead(amplPot), 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
@@ -118,11 +119,11 @@ void loop() {
    */
 
   //  waveType = constrain(map(analogRead(wavePot), 0, 1023, waveMin, waveMax), waveMin, waveMax);
-  waveType = 1; // BOARDTESTING: hardcode for square now
+  waveType = SQUARE; // BOARDTESTING: hardcode for square now
   float DACval = 0;
   switch (waveType) {
     case SINE:
-//      DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
+      //      DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
       //  float sineVal = sin(phase) * 2000.0 + 2050.0; // amplitude adjustment should occur here
       DACval = sin(phase) * 2000.0 + 2050.0; // amplitude adjustment should occur here
       // 2050.0 is DC offset?
@@ -141,8 +142,8 @@ void loop() {
       DACval = floatmap(phase, 0, twopi, 0.0, 1.0) * (DACamplitude / maxAmpl) * 4095.0;
       break;
     case NOISE:
-    // check this on the scope!
-      (random() > 0.5) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
+      // check this on the scope!
+      (random(0, 9) > 4.5) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
       break;
     default:
       DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here

@@ -43,7 +43,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define SAW_ASC 3
 #define NOISE 4
 
-char* waveLabels[] = {"SINE", "SQUARE", "SAW_DESC", "SAW_ASC", "NOISE"};
+char* waveLabels[] = {"SINE", "SQUARE", "SAW_ASC", "SAW_DESC", "NOISE"};
 
 float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
 float maxFreq = 0.4 * 1000.0;
@@ -82,7 +82,7 @@ void setup() {
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.display();
-
+  lastFreqPot = analogRead(freqPot);
 }
 
 void loop() {
@@ -139,7 +139,7 @@ void loop() {
       DACval = floatmap(phase, 0, twopi, 0.0, 1.0) * (DACamplitude/maxAmpl)*4095.0;
       break;
     case NOISE:
-      (random() > 0.5) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
+      (random(0,9) > 4.5) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
       break;
     default:
       DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
