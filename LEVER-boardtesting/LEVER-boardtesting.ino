@@ -141,6 +141,7 @@ void loop() {
       DACval = floatmap(phase, 0, twopi, 0.0, 1.0) * (DACamplitude / maxAmpl) * 4095.0;
       break;
     case NOISE:
+    // check this on the scope!
       (random() > 0.5) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
       break;
     default:

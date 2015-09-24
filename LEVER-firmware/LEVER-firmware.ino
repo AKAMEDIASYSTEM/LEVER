@@ -41,9 +41,9 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define SQUARE 1
 #define SAW_DESC 2
 #define SAW_ASC 3
-#define TRIANGLE 4
+#define NOISE 4
 
-char* waveLabels[] = {"SINE", "SQUARE", "SAW_DESC", "SAW_ASC", "TRIANGLE"};
+char* waveLabels[] = {"SINE", "SQUARE", "SAW_DESC", "SAW_ASC", "NOISE"};
 
 float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
 float maxFreq = 0.4 * 1000.0;
@@ -138,8 +138,8 @@ void loop() {
       // phase itself is linearly ramping
       DACval = floatmap(phase, 0, twopi, 0.0, 1.0) * (DACamplitude/maxAmpl)*4095.0;
       break;
-    case TRIANGLE:
-      DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
+    case NOISE:
+      (random() > 0.5) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
       break;
     default:
       DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
