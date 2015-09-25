@@ -50,7 +50,7 @@ float maxFreq = 0.2 * 1000.0;
 
 float minDuty = 0.3;
 float maxDuty = 0.98;
-float dutyCycle = 0.75;
+float dutyCycle = 0.55;
 
 float minAmpl = 0.0; // not tested
 float maxAmpl = 2000.0; // not tested
@@ -90,7 +90,7 @@ void setup() {
 void loop() {
 
   //  dutyCycle = constrain(floatmap(analogRead(dutyPot), 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
-  dutyCycle = 0.6; // BOARDTESTING: hardcode duty cycle, yields about 180v from boost circuit
+//  dutyCycle = 0.6; // BOARDTESTING: hardcode duty cycle, yields about 180v from boost circuit
   analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
 
   //  DACamplitude = constrain(floatmap(analogRead(amplPot), 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
