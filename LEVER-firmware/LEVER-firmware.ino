@@ -70,7 +70,7 @@ float phaseOffset = 0.05;
 
 int count = 0;
 
-int potDeltaThreshold = 5; // read resolution is 10-bit (0-1023) so 50 is about 5%
+int potDeltaThreshold = 50; // read resolution is 10-bit (0-1023) so 50 is about 5%
 
 int newFreqPot = 0;
 int lastFreqPot = 0; // remember last loop's reading, only update screen if freqPot is moved
@@ -84,8 +84,8 @@ int lastDutyPot = 0;
 void setup() {
   // 0 - 4095 pwm values if res set to 12-bit
   analogWriteResolution(12);
-  //  analogWriteFrequency(pwmOut, 375000);
-  analogWriteFrequency(pwmOut, 187500);
+  analogWriteFrequency(pwmOut, 375000);
+  //  analogWriteFrequency(pwmOut, 187500);
   //  analogWriteFrequency(pwmOut, 93750);
   pinMode(pwmOut, OUTPUT);
   pinMode(freqPot, INPUT); // frequency adjust pot
@@ -106,7 +106,7 @@ void loop() {
   dutyCycle = constrain(floatmap(newDutyPot, 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
   if ( abs(newFreqPot - lastDutyPot) > potDeltaThreshold) {
     lastDutyPot = newDutyPot;
-    updateDisplay();
+//    updateDisplay();
   }
 
   analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
@@ -117,13 +117,14 @@ void loop() {
   DACamplitude = constrain(floatmap(newDACampPot, 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
   if ( abs(newDACampPot - lastDACampPot) > potDeltaThreshold) {
     lastDACampPot = newDACampPot;
-    updateDisplay();
+//    updateDisplay();
   }
 
   // update frequency based on pot
   newFreqPot = analogRead(freqPot);
   // calculate and update the phase accumulator
-  phaseOffset = (4 * phaseOffset + constrain(floatmap(newFreqPot, 0, 1023, minFreq, maxFreq), minFreq, maxFreq)) / 5; // smoother - is this still needed
+//  phaseOffset = (4 * phaseOffset + constrain(floatmap(newFreqPot, 0, 1023, minFreq, maxFreq), minFreq, maxFreq)) / 5; // smoother - is this still needed
+  phaseOffset = constrain(floatmap(newFreqPot, 0, 1023, minFreq, maxFreq), minFreq, maxFreq); // smoother - is this still needed
   phase = phase + (phaseOffset / 1000.0);
   if (phase >= twopi) {
     phase = 0;
@@ -133,8 +134,6 @@ void loop() {
     updateDisplay();
   }
 
-
-
   calculateFeedback(); // this doesn't exist yet
 
   // update Wave Type based on pot
@@ -142,36 +141,38 @@ void loop() {
   waveType = constrain(map(newWavePot, 0, 1023, waveMin, waveMax), waveMin, waveMax);
   if ( abs(newWavePot - lastWavePot) > potDeltaThreshold) {
     lastWavePot = newWavePot;
-    updateDisplay();
+//    updateDisplay();
   }
 
-
-  //  waveType = 2;
   float DACval = 0;
+
+  // working to invert this whole part, as currently the DAC amplitude control is reversed - it biases towards always-on and not always-off
   switch (waveType) {
     case SINE:
-      DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
+      DACval = sin(phase) * DACamplitude + 2050.0;
       //  float sineVal = sin(phase) * 2000.0 + 2050.0; // amplitude adjustment should occur here
       // 2050.0 is DC offset?
       break;
     case SQUARE:
       // if phase > pi then 1 else 0
-      (phase > twopi / 2) ? (4095.0 - (DACval = (DACamplitude / maxAmpl) * 4095.0)) : (DACval = 0.0);
+      (phase > twopi / 2) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
       break;
     case SAW_DESC:
       // phase itself is linearly ramping
-      DACval = (4095.0 - floatmap(phase, 0, twopi, 1.0, 0.0) * (DACamplitude / maxAmpl) * 4095.0);
+      DACval = floatmap(phase, 0, twopi, 1.0, 0.0) * (DACamplitude / maxAmpl) * 4095.0;
       break;
     case SAW_ASC:
       // phase itself is linearly ramping
-      DACval = (4095.0 - floatmap(phase, 0, twopi, 0.0, 1.0) * (DACamplitude / maxAmpl) * 4095.0);
+      DACval = floatmap(phase, 0, twopi, 0.0, 1.0) * (DACamplitude / maxAmpl) * 4095.0;
       break;
     case NOISE:
       (random(0, 9) > 4.5) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
       break;
     default:
-      DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
+      DACval = sin(phase) * DACamplitude + 2050.0;
       break;
   }
+
+  DACval = 4095.0 - DACval;
   analogWrite(A14, (int)DACval);
 }
