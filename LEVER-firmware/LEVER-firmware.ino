@@ -1,5 +1,5 @@
 
-
+/*
 // LEVER driver for implementation of REVEL and TeslaTouch papers by Disney Research
 // for teensy 3.1
 // Digital pin 4 sends hi-freq PWM (altered to send at 375kHz) to a boost converter circuit
@@ -20,6 +20,10 @@
 // TODO: figure out where in teh circuit the current-sensing occurs (pretty sure we're measuring voltage drop across precision resistor?)
 // TODO: figure out how an RF interface might be used, maybe RFduino serial link or BlueSmiRF?
 
+//  phase = phase + 0.2; // about 600Hz
+//  phase = phase + 0.05; // about 150Hz
+//  phase = phase + 0.025; // about 75Hz
+*/
 // #include <Adafruit_MCP4725.h> // not yet used, for external DAC if necessary
 #include <SPI.h>
 #include <Wire.h>
@@ -49,7 +53,7 @@ float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, tr
 float maxFreq = 0.4 * 1000.0;
 
 float minDuty = 0.3;
-float maxDuty = 0.98;
+float maxDuty = 0.95;
 float dutyCycle = 0.75;
 
 float minAmpl = 0.0; // not tested
@@ -65,14 +69,24 @@ float twopi = 3.14159 * 2;
 float phaseOffset = 0.05;
 
 int count = 0;
+
+int potDeltaThreshold = 5; // read resolution is 10-bit (0-1023) so 50 is about 5%
+
 int newFreqPot = 0;
 int lastFreqPot = 0; // remember last loop's reading, only update screen if freqPot is moved
-int freqPotDeltaThreshold = 50; // read resolution is 10-bit (0-1023) so this is about 5%
+int newWavePot = 0;
+int lastWavePot = 0;
+int newDACampPot = 0;
+int lastDACampPot = 0;
+int newDutyPot = 0;
+int lastDutyPot = 0;
 
 void setup() {
   // 0 - 4095 pwm values if res set to 12-bit
   analogWriteResolution(12);
-  analogWriteFrequency(pwmOut, 375000);
+  //  analogWriteFrequency(pwmOut, 375000);
+  analogWriteFrequency(pwmOut, 187500);
+  //  analogWriteFrequency(pwmOut, 93750);
   pinMode(pwmOut, OUTPUT);
   pinMode(freqPot, INPUT); // frequency adjust pot
   pinMode(dutyPot, INPUT); // eventually this will be replaced by calculateFeedback()
@@ -87,59 +101,73 @@ void setup() {
 
 void loop() {
 
-  dutyCycle = constrain(floatmap(analogRead(dutyPot), 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
-  analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
-
-  // not tested
-  DACamplitude = constrain(floatmap(analogRead(amplPot), 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
-  //  DACamplitude = 2000.0;
-
-  newFreqPot = analogRead(freqPot);
-  if ( abs(newFreqPot - lastFreqPot) > freqPotDeltaThreshold) {
-    lastFreqPot = newFreqPot;
+  // update duty cycle based on pot
+  newDutyqPot = analogRead(dutyPot);
+  dutyCycle = constrain(floatmap(newDutyqPot, 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
+  if ( abs(newFreqPot - lastDutyPot) > potDeltaThreshold) {
+    lastDutyPot = newDutyqPot;
     updateDisplay();
   }
+
+  analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
+
+
+  // update DAC amplitude based on pot
+  newDACampPot = analogRead(amplPot);
+  DACamplitude = constrain(floatmap(newDACampPot, 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
+  if ( abs(newDACampPot - lastDACampPot) > potDeltaThreshold) {
+    lastDACampPot = newDACampPot;
+    updateDisplay();
+  }
+
+  // update frequency based on pot
+  newFreqPot = analogRead(freqPot);
   // calculate and update the phase accumulator
-  phaseOffset = (4 * phaseOffset + constrain(map(newFreqPot, 0, 1023, minFreq, maxFreq), minFreq, maxFreq)) / 5;
+  phaseOffset = (4 * phaseOffset + constrain(floatmap(newFreqPot, 0, 1023, minFreq, maxFreq), minFreq, maxFreq)) / 5; // smoother - is this still needed
   phase = phase + (phaseOffset / 1000.0);
   if (phase >= twopi) {
     phase = 0;
   }
-  //  phase = phase + 0.2; // about 600Hz
-  //  phase = phase + 0.05; // about 150Hz
-  //  phase = phase + 0.025; // about 75Hz
+  if ( abs(newFreqPot - lastFreqPot) > potDeltaThreshold) {
+    lastFreqPot = newFreqPot;
+    updateDisplay();
+  }
+
+
 
   calculateFeedback(); // this doesn't exist yet
-  /* I think: we measure the current going across a precision resistor (at high voltage, so: how?! isolation amp?)
-   * Then we see how far under/over target we are, and proportionally adjust duty cycle
-   * (higher duty cycle, i think, means higher voltage but make sure it's not going into saturation)
-   *
-   */
 
-  waveType = constrain(map(analogRead(wavePot), 0, 1023, waveMin, waveMax), waveMin, waveMax);
-//  waveType = 2;
+  // update Wave Type based on pot
+  newWavePot = analogRead(wavePot);
+  waveType = constrain(map(newWaveType, 0, 1023, waveMin, waveMax), waveMin, waveMax);
+  if ( abs(newWavePot - lastWavePot) > potDeltaThreshold) {
+    lastWavePot = newWavePot;
+    updateDisplay();
+  }
+
+
+  //  waveType = 2;
   float DACval = 0;
   switch (waveType) {
     case SINE:
       DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
       //  float sineVal = sin(phase) * 2000.0 + 2050.0; // amplitude adjustment should occur here
       // 2050.0 is DC offset?
-      // 2000.0 is the amplitude? Test this today 9/14
       break;
     case SQUARE:
       // if phase > pi then 1 else 0
-      (phase > twopi / 2) ? (DACval = (DACamplitude/maxAmpl)*4095.0) : (DACval = 0.0);
+      (phase > twopi / 2) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
       break;
     case SAW_DESC:
       // phase itself is linearly ramping
-      DACval = floatmap(phase, 0, twopi, 1.0, 0.0) * (DACamplitude/maxAmpl)*4095.0;
+      DACval = floatmap(phase, 0, twopi, 1.0, 0.0) * (DACamplitude / maxAmpl) * 4095.0;
       break;
     case SAW_ASC:
       // phase itself is linearly ramping
-      DACval = floatmap(phase, 0, twopi, 0.0, 1.0) * (DACamplitude/maxAmpl)*4095.0;
+      DACval = floatmap(phase, 0, twopi, 0.0, 1.0) * (DACamplitude / maxAmpl) * 4095.0;
       break;
     case NOISE:
-      (random(0,9) > 4.5) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
+      (random(0, 9) > 4.5) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
       break;
     default:
       DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
