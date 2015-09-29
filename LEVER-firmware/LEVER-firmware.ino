@@ -102,10 +102,10 @@ void setup() {
 void loop() {
 
   // update duty cycle based on pot
-  newDutyqPot = analogRead(dutyPot);
-  dutyCycle = constrain(floatmap(newDutyqPot, 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
+  newDutyPot = analogRead(dutyPot);
+  dutyCycle = constrain(floatmap(newDutyPot, 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
   if ( abs(newFreqPot - lastDutyPot) > potDeltaThreshold) {
-    lastDutyPot = newDutyqPot;
+    lastDutyPot = newDutyPot;
     updateDisplay();
   }
 
@@ -139,7 +139,7 @@ void loop() {
 
   // update Wave Type based on pot
   newWavePot = analogRead(wavePot);
-  waveType = constrain(map(newWaveType, 0, 1023, waveMin, waveMax), waveMin, waveMax);
+  waveType = constrain(map(newWavePot, 0, 1023, waveMin, waveMax), waveMin, waveMax);
   if ( abs(newWavePot - lastWavePot) > potDeltaThreshold) {
     lastWavePot = newWavePot;
     updateDisplay();
@@ -156,15 +156,15 @@ void loop() {
       break;
     case SQUARE:
       // if phase > pi then 1 else 0
-      (phase > twopi / 2) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
+      (phase > twopi / 2) ? (4095.0 - (DACval = (DACamplitude / maxAmpl) * 4095.0)) : (DACval = 0.0);
       break;
     case SAW_DESC:
       // phase itself is linearly ramping
-      DACval = floatmap(phase, 0, twopi, 1.0, 0.0) * (DACamplitude / maxAmpl) * 4095.0;
+      DACval = (4095.0 - floatmap(phase, 0, twopi, 1.0, 0.0) * (DACamplitude / maxAmpl) * 4095.0);
       break;
     case SAW_ASC:
       // phase itself is linearly ramping
-      DACval = floatmap(phase, 0, twopi, 0.0, 1.0) * (DACamplitude / maxAmpl) * 4095.0;
+      DACval = (4095.0 - floatmap(phase, 0, twopi, 0.0, 1.0) * (DACamplitude / maxAmpl) * 4095.0);
       break;
     case NOISE:
       (random(0, 9) > 4.5) ? (DACval = (DACamplitude / maxAmpl) * 4095.0) : (DACval = 0.0);
