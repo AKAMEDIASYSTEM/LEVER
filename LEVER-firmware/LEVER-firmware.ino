@@ -56,7 +56,7 @@ float maxFreq = 0.4 * 1000.0;
 
 float minDuty = 0.3;
 float maxDuty = 0.95;
-float dutyCycle = 0.75;
+float dutyCycle = 0.3;
 
 float minAmpl = 0.0;
 float maxAmpl = 2000.0;
@@ -116,7 +116,11 @@ void loop() {
         DACamplitude = constrain(floatmap(newAmp, 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
         break;
       case 2: // WAVE
-        newWave += (int(delta / 4) % 4); // wnat this to change every encoder detent, which is 4 counts... still not working great
+        newWave = (newWave + delta) % 4; // want this to change every encoder detent, which is 4 counts... still not working great
+        // for example, this only changes every 24 detents...
+        // oh! encoder is PEC11R-4215F-S0024
+        // meaning 24 detents and 24 pulses per 360º
+        // so each detent is only 1 and not 4
         lastWave = newWave;
         waveType = constrain(map(newWave, 0, 3, waveMin, waveMax), waveMin, waveMax);
         break;
@@ -177,7 +181,7 @@ void loop() {
     updateDisplay();
     shouldUpdate = false;
   }
-  
+
   shouldUpdate = false;
 }
 
