@@ -98,7 +98,6 @@ void setup() {
 }
 
 void loop() {
-  shouldUpdate = false;
   long newPosition = myEnc.read();
   long delta = newPosition - lastPosition;
 
@@ -109,7 +108,7 @@ void loop() {
       case 0: // FREQ
         newFreq += delta;
         lastFreq = newFreq;
-        phaseOffset = constrain(floatmap(newFreq, 0, 1023, minFreq, maxFreq), minFreq, maxFreq); // smoother - is this still needed
+        phaseOffset = constrain(floatmap(newFreq, 0, 1023, minFreq, maxFreq), minFreq, maxFreq);
         break;
       case 1: // AMP
         newAmp += delta;
@@ -117,7 +116,7 @@ void loop() {
         DACamplitude = constrain(floatmap(newAmp, 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
         break;
       case 2: // WAVE
-        newWave += (int(delta/16) % 4);
+        newWave += (int(delta / 4) % 4); // wnat this to change every encoder detent, which is 4 counts... still not working great
         lastWave = newWave;
         waveType = constrain(map(newWave, 0, 3, waveMin, waveMax), waveMin, waveMax);
         break;
@@ -129,7 +128,7 @@ void loop() {
       default:
         newFreq += delta;
         lastFreq = newFreq;
-        phaseOffset = constrain(floatmap(newFreq, 0, 1023, minFreq, maxFreq), minFreq, maxFreq); // smoother - is this still needed
+        phaseOffset = constrain(floatmap(newFreq, 0, 1023, minFreq, maxFreq), minFreq, maxFreq);
         break;
     }
     shouldUpdate = true;
@@ -178,6 +177,8 @@ void loop() {
     updateDisplay();
     shouldUpdate = false;
   }
+  
+  shouldUpdate = false;
 }
 
 void encButtonPress() {
