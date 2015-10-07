@@ -1,4 +1,4 @@
-
+// ENCODER VERSION
 /*
 // LEVER driver for implementation of REVEL and TeslaTouch papers by Disney Research
 // for teensy 3.1
@@ -25,6 +25,7 @@
 //  phase = phase + 0.025; // about 75Hz
 */
 // #include <Adafruit_MCP4725.h> // not yet used, for external DAC if necessary
+#include <Encoder.h>
 #include <SPI.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -35,11 +36,9 @@ Adafruit_SSD1306 display(OLED_RESET);
 #if (SSD1306_LCDHEIGHT != 64)
 #error("Height incorrect, please fix Adafruit_SSD1306.h!");
 #endif
-
-#define amplPot 20 // A6
-#define freqPot 21 // A7
-#define dutyPot 22 // A8
-#define wavePot 23 // A9
+#define encA A2
+#define encB A3
+#define encButton A1
 #define pwmOut 4
 #define SINE 0
 #define SQUARE 1
@@ -48,6 +47,9 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define NOISE 4
 
 char* waveLabels[] = {"SINE", "SQUARE", "SAW_ASC", "SAW_DESC", "NOISE"};
+char* modeLabels[] = {"FREQ", "AMP", "WAVE", "DUTY"};
+volatile int encMode = 0;
+volatile boolean shouldUpdate = true;
 
 float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
 float maxFreq = 0.4 * 1000.0;
@@ -56,11 +58,11 @@ float minDuty = 0.3;
 float maxDuty = 0.95;
 float dutyCycle = 0.75;
 
-float minAmpl = 0.0; // not tested
-float maxAmpl = 2000.0; // not tested
+float minAmpl = 0.0;
+float maxAmpl = 2000.0;
 float DACamplitude = 1000.0;
 
-int waveType = 0; // sine, square, saw descending, saw ascending, triangle
+int waveType = 0; // sine, square, saw descending, saw ascending, noise
 #define waveMax 4
 #define waveMin 0
 
@@ -68,89 +70,85 @@ float phase = 0.0;
 float twopi = 3.14159 * 2;
 float phaseOffset = 0.05;
 
-int count = 0;
+long lastFreq = 200; // middle-to-low end of the 0-1023 range
+long lastWave = 0; // sine
+long lastAmp = 1023; // full amplitude
+long lastDuty = 10; // low end of duty cycle
+long newFreq = 200;
+long newWave = 0;
+long newAmp = 1023;
+long newDuty = 10;
 
-int potDeltaThreshold = 50; // read resolution is 10-bit (0-1023) so 50 is about 5%
+long newPosition = 0;
+long lastPosition = 0;
 
-int newFreqPot = 0;
-int lastFreqPot = 0; // remember last loop's reading, only update screen if freqPot is moved
-int newWavePot = 0;
-int lastWavePot = 0;
-int newDACampPot = 0;
-int lastDACampPot = 0;
-int newDutyPot = 0;
-int lastDutyPot = 0;
+Encoder myEnc(encA, encB);
 
 void setup() {
   // 0 - 4095 pwm values if res set to 12-bit
   analogWriteResolution(12);
   analogWriteFrequency(pwmOut, 375000);
-  //  analogWriteFrequency(pwmOut, 187500);
-  //  analogWriteFrequency(pwmOut, 93750);
   pinMode(pwmOut, OUTPUT);
-  pinMode(freqPot, INPUT); // frequency adjust pot
-  pinMode(dutyPot, INPUT); // eventually this will be replaced by calculateFeedback()
-  pinMode(amplPot, INPUT); // manually adjust output DAC amplitude, to see if this should be calculateFeedback() modulated
-  pinMode(wavePot, INPUT); // select between waveforms (how to display current waveform?)
+  pinMode(encButton, INPUT_PULLUP); // MODE switch
+  attachInterrupt(encButton, encButtonPress, RISING);
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
   display.setTextSize(1);
   display.setTextColor(WHITE);
   display.display();
-  lastFreqPot = analogRead(freqPot);
 }
 
 void loop() {
+  shouldUpdate = false;
+  long newPosition = myEnc.read();
+  long delta = newPosition - lastPosition;
 
-  // update duty cycle based on pot
-  newDutyPot = analogRead(dutyPot);
-  dutyCycle = constrain(floatmap(newDutyPot, 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
-  if ( abs(newFreqPot - lastDutyPot) > potDeltaThreshold) {
-    lastDutyPot = newDutyPot;
-//    updateDisplay();
+  if (abs((delta)) != 0) {
+    // calculate delta, toggle updateDisplay
+    // increment the appropriate mode-position by the delta?
+    switch (encMode) {
+      case 0: // FREQ
+        newFreq += delta;
+        lastFreq = newFreq;
+        phaseOffset = constrain(floatmap(newFreq, 0, 1023, minFreq, maxFreq), minFreq, maxFreq); // smoother - is this still needed
+        break;
+      case 1: // AMP
+        newAmp += delta;
+        lastAmp = newAmp;
+        DACamplitude = constrain(floatmap(newAmp, 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
+        break;
+      case 2: // WAVE
+        newWave += (int(delta/16) % 4);
+        lastWave = newWave;
+        waveType = constrain(map(newWave, 0, 3, waveMin, waveMax), waveMin, waveMax);
+        break;
+      case 3: // DUTY
+        newDuty += delta;
+        lastDuty = newDuty;
+        dutyCycle = constrain(floatmap(newDuty, 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
+        break;
+      default:
+        newFreq += delta;
+        lastFreq = newFreq;
+        phaseOffset = constrain(floatmap(newFreq, 0, 1023, minFreq, maxFreq), minFreq, maxFreq); // smoother - is this still needed
+        break;
+    }
+    shouldUpdate = true;
+    lastPosition = newPosition;
   }
 
   analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
 
+  calculateFeedback(); // this doesn't exist yet
 
-  // update DAC amplitude based on pot
-  newDACampPot = analogRead(amplPot);
-  DACamplitude = constrain(floatmap(newDACampPot, 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
-  if ( abs(newDACampPot - lastDACampPot) > potDeltaThreshold) {
-    lastDACampPot = newDACampPot;
-//    updateDisplay();
-  }
-
-  // update frequency based on pot
-  newFreqPot = analogRead(freqPot);
-  // calculate and update the phase accumulator
-//  phaseOffset = (4 * phaseOffset + constrain(floatmap(newFreqPot, 0, 1023, minFreq, maxFreq), minFreq, maxFreq)) / 5; // smoother - is this still needed
-  phaseOffset = constrain(floatmap(newFreqPot, 0, 1023, minFreq, maxFreq), minFreq, maxFreq); // smoother - is this still needed
+  float DACval = 0;
   phase = phase + (phaseOffset / 1000.0);
   if (phase >= twopi) {
     phase = 0;
   }
-  if ( abs(newFreqPot - lastFreqPot) > potDeltaThreshold) {
-    lastFreqPot = newFreqPot;
-    updateDisplay();
-  }
 
-  calculateFeedback(); // this doesn't exist yet
-
-  // update Wave Type based on pot
-  newWavePot = analogRead(wavePot);
-  waveType = constrain(map(newWavePot, 0, 1023, waveMin, waveMax), waveMin, waveMax);
-  if ( abs(newWavePot - lastWavePot) > potDeltaThreshold) {
-    lastWavePot = newWavePot;
-//    updateDisplay();
-  }
-
-  float DACval = 0;
-
-  // working to invert this whole part, as currently the DAC amplitude control is reversed - it biases towards always-on and not always-off
   switch (waveType) {
     case SINE:
       DACval = sin(phase) * DACamplitude + 2050.0;
-      //  float sineVal = sin(phase) * 2000.0 + 2050.0; // amplitude adjustment should occur here
       // 2050.0 is DC offset?
       break;
     case SQUARE:
@@ -175,4 +173,16 @@ void loop() {
 
   DACval = 4095.0 - DACval;
   analogWrite(A14, (int)DACval);
+
+  if (shouldUpdate) {
+    updateDisplay();
+    shouldUpdate = false;
+  }
 }
+
+void encButtonPress() {
+  encMode++;
+  encMode %= 4;
+  shouldUpdate = true;
+}
+

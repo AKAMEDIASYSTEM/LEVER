@@ -39,10 +39,6 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define encA A2
 #define encB A3
 #define encButton A1
-#define amplPot 20 // A6
-#define freqPot 21 // A7
-#define dutyPot 22 // A8
-#define wavePot 23 // A9
 #define pwmOut 4
 #define SINE 0
 #define SQUARE 1
@@ -53,6 +49,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 char* waveLabels[] = {"SINE", "SQUARE", "SAW_ASC", "SAW_DESC", "NOISE"};
 char* modeLabels[] = {"FREQ", "AMP", "WAVE", "DUTY"};
 volatile int encMode = 0;
+volatile boolean shouldUpdate = true;
 
 float minFreq = 0.016 * 1000.0; // 0.0125 is too low for some people to feel, trying 0.016 now
 float maxFreq = 0.4 * 1000.0;
@@ -61,11 +58,11 @@ float minDuty = 0.3;
 float maxDuty = 0.95;
 float dutyCycle = 0.75;
 
-float minAmpl = 0.0; // not tested
-float maxAmpl = 2000.0; // not tested
+float minAmpl = 0.0;
+float maxAmpl = 2000.0;
 float DACamplitude = 1000.0;
 
-int waveType = 0; // sine, square, saw descending, saw ascending, triangle
+int waveType = 0; // sine, square, saw descending, saw ascending, noise
 #define waveMax 4
 #define waveMin 0
 
@@ -73,23 +70,17 @@ float phase = 0.0;
 float twopi = 3.14159 * 2;
 float phaseOffset = 0.05;
 
-int count = 0;
-
-int potDeltaThreshold = 50; // read resolution is 10-bit (0-1023) so 50 is about 5%
-
-long lastFreq = 0;
-long lastWave = 0;
-long lastAmp = 0;
-long lastDuty = 0;
-long newFreq = 0;
+long lastFreq = 200; // middle-to-low end of the 0-1023 range
+long lastWave = 0; // sine
+long lastAmp = 1023; // full amplitude
+long lastDuty = 10; // low end of duty cycle
+long newFreq = 200;
 long newWave = 0;
-long newAmp = 0;
-long newDuty = 0;
+long newAmp = 1023;
+long newDuty = 10;
 
 long newPosition = 0;
 long lastPosition = 0;
-boolean shouldUpdate = true;
-
 
 Encoder myEnc(encA, encB);
 
@@ -100,7 +91,6 @@ void setup() {
   pinMode(pwmOut, OUTPUT);
   pinMode(encButton, INPUT_PULLUP); // MODE switch
   attachInterrupt(encButton, encButtonPress, RISING);
-
   display.begin(SSD1306_SWITCHCAPVCC, 0x3D);  // initialize with the I2C addr 0x3D (for the 128x64)
   display.setTextSize(1);
   display.setTextColor(WHITE);
@@ -109,81 +99,53 @@ void setup() {
 
 void loop() {
   shouldUpdate = false;
-  // TODO, read teh encoder once per loop and then switch on the result
-  // we are trying to resolve an issue where there's a discontinuity between the master encoder Position
-  // and each mode's position
-  // so: calc delta of encoder, then look at mode and increment the mode position by that delta?
   long newPosition = myEnc.read();
-  if(abs((newPosition-oldPosition)) != 0){
+  long delta = newPosition - lastPosition;
+
+  if (abs((delta)) != 0) {
     // calculate delta, toggle updateDisplay
     // increment the appropriate mode-position by the delta?
-  }
-  
-  switch (encMode) {
-    case 0: // FREQ
-      newFreq = myEnc.read();
-      newFreq = constrain(newFreq, 0, 1023);
-      if (newFreq != lastFreq) {
+    switch (encMode) {
+      case 0: // FREQ
+        newFreq += delta;
         lastFreq = newFreq;
-        shouldUpdate = true;
         phaseOffset = constrain(floatmap(newFreq, 0, 1023, minFreq, maxFreq), minFreq, maxFreq); // smoother - is this still needed
-        phase = phase + (phaseOffset / 1000.0);
-        if (phase >= twopi) {
-          phase = 0;
-        }
-      }
-      break;
-    case 1: // AMP
-      newAmp = myEnc.read();
-      newAmp = constrain(newAmp, 0, 1023);
-      if (newAmp != lastAmp) {
+        break;
+      case 1: // AMP
+        newAmp += delta;
         lastAmp = newAmp;
-        shouldUpdate = true;
         DACamplitude = constrain(floatmap(newAmp, 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
-      }
-      break;
-    case 2: // WAVE
-      newWave = myEnc.read();
-      newWave = constrain(newWave, 0, 1023);
-      if (newWave != lastWave) {
+        break;
+      case 2: // WAVE
+        newWave += (int(delta/16) % 4);
         lastWave = newWave;
-        shouldUpdate = true;
-        waveType = constrain(map(newWave, 0, 1023, waveMin, waveMax), waveMin, waveMax);
-      }
-      break;
-    case 3: // DUTY
-      newDuty = myEnc.read();
-      newDuty = constrain(newDuty, 0, 1023);
-      if (newDuty != lastDuty) {
+        waveType = constrain(map(newWave, 0, 3, waveMin, waveMax), waveMin, waveMax);
+        break;
+      case 3: // DUTY
+        newDuty += delta;
         lastDuty = newDuty;
-        shouldUpdate = true;
         dutyCycle = constrain(floatmap(newDuty, 0.0, 1023.0, minDuty, maxDuty), minDuty, maxDuty);
-      }
-      break;
-    default:
-      newFreq = myEnc.read();
-      newFreq = constrain(newFreq, 0, 1023);
-      if (newFreq != lastFreq) {
+        break;
+      default:
+        newFreq += delta;
         lastFreq = newFreq;
-        shouldUpdate = true;
         phaseOffset = constrain(floatmap(newFreq, 0, 1023, minFreq, maxFreq), minFreq, maxFreq); // smoother - is this still needed
-        phase = phase + (phaseOffset / 1000.0);
-        if (phase >= twopi) {
-          phase = 0;
-        }
-      }
-      break;
+        break;
+    }
+    shouldUpdate = true;
+    lastPosition = newPosition;
   }
-
-
 
   analogWrite(pwmOut, int(4096 * dutyCycle)); // duty cycle should have been dynamically calculated before here
 
   calculateFeedback(); // this doesn't exist yet
 
   float DACval = 0;
+  phase = phase + (phaseOffset / 1000.0);
+  if (phase >= twopi) {
+    phase = 0;
+  }
 
-  // working to invert this whole part, as currently the DAC amplitude control is reversed - it biases towards always-on and not always-off
   switch (waveType) {
     case SINE:
       DACval = sin(phase) * DACamplitude + 2050.0;
@@ -214,12 +176,13 @@ void loop() {
 
   if (shouldUpdate) {
     updateDisplay();
+    shouldUpdate = false;
   }
-
 }
 
 void encButtonPress() {
   encMode++;
   encMode %= 4;
+  shouldUpdate = true;
 }
 
