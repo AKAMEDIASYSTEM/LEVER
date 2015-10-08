@@ -25,6 +25,7 @@
 //  phase = phase + 0.025; // about 75Hz
 */
 // #include <Adafruit_MCP4725.h> // not yet used, for external DAC if necessary
+#define ENCODER_OPTIMIZE_INTERRUPTS
 #include <Encoder.h>
 #include <SPI.h>
 #include <Wire.h>
@@ -66,7 +67,7 @@ int waveType = 0; // sine, square, saw descending, saw ascending, noise
 #define waveMax 4
 #define waveMin 0
 
-float phase = 0.0;
+float phase = 0.01;
 float twopi = 3.14159 * 2;
 float phaseOffset = 0.05;
 
@@ -116,7 +117,7 @@ void loop() {
         DACamplitude = constrain(floatmap(newAmp, 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
         break;
       case 2: // WAVE
-        newWave = (newWave + delta) % 4; // want this to change every encoder detent, which is 4 counts... still not working great
+        newWave = (newWave + delta); // want this to change every encoder detent, which is 4 counts... still not working great
         // for example, this only changes every 24 detents...
         // oh! encoder is PEC11R-4215F-S0024
         // meaning 24 detents and 24 pulses per 360º
