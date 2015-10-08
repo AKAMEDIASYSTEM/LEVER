@@ -47,7 +47,7 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define SAW_ASC 3
 #define NOISE 4
 
-char* waveLabels[] = {"SINE", "SQUARE", "SAW_ASC", "SAW_DESC", "NOISE"};
+char* waveLabels[] = {"SINE", "SQUARE", "A_SAW", "D_SAW", "NOISE"};
 char* modeLabels[] = {"FREQ", "AMP", "WAVE", "DUTY"};
 volatile int encMode = 0;
 volatile boolean shouldUpdate = true;
@@ -61,7 +61,7 @@ float dutyCycle = 0.3;
 
 float minAmpl = 0.0;
 float maxAmpl = 2000.0;
-float DACamplitude = 1000.0;
+float DACamplitude = 2000.0;
 
 int waveType = 0; // sine, square, saw descending, saw ascending, noise
 #define waveMax 4
@@ -69,7 +69,7 @@ int waveType = 0; // sine, square, saw descending, saw ascending, noise
 
 float phase = 0.01;
 float twopi = 3.14159 * 2;
-float phaseOffset = 0.05;
+float phaseOffset = 100; //just an initial condition, this used to be 0.05
 
 long lastFreq = 200; // middle-to-low end of the 0-1023 range
 long lastWave = 0; // sine
@@ -117,11 +117,14 @@ void loop() {
         DACamplitude = constrain(floatmap(newAmp, 0.0, 1023.0, minAmpl, maxAmpl), minAmpl, maxAmpl);
         break;
       case 2: // WAVE
-        newWave = (newWave + delta); // want this to change every encoder detent, which is 4 counts... still not working great
+        newWave = int(floor((newWave + delta/2))) %4; // want this to change every encoder detent, which is 4 counts... still not working great
         // for example, this only changes every 24 detents...
         // oh! encoder is PEC11R-4215F-S0024
         // meaning 24 detents and 24 pulses per 360º
         // so each detent is only 1 and not 4
+// encoder seems to advance +/- 1 or 2 each turn (from observation)
+
+        
         lastWave = newWave;
         waveType = constrain(map(newWave, 0, 3, waveMin, waveMax), waveMin, waveMax);
         break;
@@ -179,7 +182,7 @@ void loop() {
   analogWrite(A14, (int)DACval);
 
   if (shouldUpdate) {
-    updateDisplay();
+    updateDisplay(delta);
     shouldUpdate = false;
   }
 
