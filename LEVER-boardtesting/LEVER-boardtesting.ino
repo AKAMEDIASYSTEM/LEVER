@@ -120,7 +120,7 @@ void loop() {
 
   //  waveType = constrain(map(analogRead(wavePot), 0, 1023, waveMin, waveMax), waveMin, waveMax);
   waveType = SQUARE; // BOARDTESTING: hardcode for square now
-  float DACval = 0;
+  float DACval = 1;
   switch (waveType) {
     case SINE:
       //      DACval = sin(phase) * DACamplitude + 2050.0; // amplitude adjustment should occur here
